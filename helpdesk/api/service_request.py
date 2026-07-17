@@ -50,6 +50,7 @@ def create_service_request(
 	doc = frappe.get_doc(
 		{
 			"doctype": "Service Request",
+			"customer_type": "HD Customer",
 			"customer": hd_customer,
 			"subject": subject,
 			"due_date": due_date,
