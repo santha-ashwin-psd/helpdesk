@@ -11,7 +11,15 @@
             />
           </template>
         </Breadcrumbs>
-        <TicketSLA />
+        <div class="flex items-center">
+          <TicketSLA />
+          <div
+            v-if="ticket.doc.ticket_type"
+            class="ms-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-700"
+          >
+            {{ ticket.doc.ticket_type }}
+          </div>
+        </div>
       </div>
     </template>
     <template #right-header>
@@ -46,6 +54,26 @@
           </div>
         </div>
         <!-- Status -->
+        <Button
+          v-if="ticket.doc.service_request"
+          class="mr-2"
+          :label="__('Open Service Request')"
+          @click="openServiceRequest"
+        >
+          <template #prefix>
+            <LucideExternalLink class="size-4" />
+          </template>
+        </Button>
+        <Button
+          v-else
+          class="mr-2"
+          :label="__('Create Service Request')"
+          @click="showServiceRequestModal = true"
+        >
+          <template #prefix>
+            <LucideWrench class="size-4" />
+          </template>
+        </Button>
         <Dropdown :options="statusDropdown" placement="right">
           <template #default="{ open }">
             <Button :label="__(ticket.doc.status)" ref="statusRef">
@@ -76,6 +104,12 @@
     v-model="showMergeModal"
     @update="ticket.reload()"
   />
+  <CreateServiceRequestModal
+    :ticket="ticket.doc"
+    v-if="showServiceRequestModal"
+    v-model="showServiceRequestModal"
+    @update="ticket.reload()"
+  />
   <TicketSubjectModal v-model="showSubjectDialog" />
 </template>
 
@@ -83,6 +117,7 @@
 import { MultipleAvatar } from "@/components";
 import LayoutHeader from "@/components/LayoutHeader.vue";
 import TicketMergeModal from "@/components/ticket/TicketMergeModal.vue";
+import CreateServiceRequestModal from "./CreateServiceRequestModal.vue";
 import { setupCustomizations } from "@/composables/formCustomisation";
 import { useNotifyTicketUpdate } from "@/composables/realtime";
 import { useShortcut } from "@/composables/shortcuts";
@@ -120,6 +155,8 @@ import {
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import LucideMerge from "~icons/lucide/merge";
+import LucideExternalLink from "~icons/lucide/external-link";
+import LucideWrench from "~icons/lucide/wrench";
 import { IndicatorIcon } from "../icons";
 import TicketNavigation from "./TicketNavigation.vue";
 import TicketSLA from "./TicketSLA.vue";
@@ -240,6 +277,11 @@ const ticketCount = createResource({
   auto: true,
 });
 const showMergeModal = ref(false);
+const showServiceRequestModal = ref(false);
+
+function openServiceRequest() {
+  window.open(`/app/service-request/${ticket.value.doc.service_request}`, "_blank");
+}
 const showMergeOption = computed(() => {
   return (
     !ticket?.value?.doc?.is_merged &&
