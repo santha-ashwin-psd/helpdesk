@@ -68,7 +68,7 @@
           v-else
           class="mr-2"
           :label="__('Create Service Request')"
-          @click="showServiceRequestModal = true"
+          @click="handleCreateServiceRequest"
         >
           <template #prefix>
             <LucideWrench class="size-4" />
@@ -281,6 +281,9 @@ const showServiceRequestModal = ref(false);
 
 function openServiceRequest() {
   window.open(`/app/service-request/${ticket.value.doc.service_request}`, "_blank");
+}
+function handleCreateServiceRequest() {
+  showServiceRequestModal.value = true;
 }
 const showMergeOption = computed(() => {
   return (

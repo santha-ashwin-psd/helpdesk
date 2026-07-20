@@ -45,6 +45,16 @@ def create_service_request(
 			)
 		)
 
+	
+
+	# ── Validate required user-facing fields ─────────────────────────────────
+	if not hd_customer:
+		frappe.throw(_("Customer is required."))
+	if not subject:
+		frappe.throw(_("Subject is required."))
+	if not due_date:
+		frappe.throw(_("Due Date is required."))
+
 	# ── Create the document ───────────────────────────────────────────────────
 	# Note: `customer` on Service Request is a Link to HD Customer, not ERPNext Customer.
 	doc = frappe.get_doc(
@@ -67,6 +77,8 @@ def create_service_request(
 	# ── Back-link on the ticket ───────────────────────────────────────────────
 	if ticket_id:
 		frappe.db.set_value("HD Ticket", ticket_id, "service_request", doc.name)
+		if not frappe.db.get_value("HD Ticket", ticket_id, "customer"):
+			frappe.db.set_value("HD Ticket", ticket_id, "customer", hd_customer)
 
 	return doc.as_dict()
 
