@@ -4,7 +4,7 @@ from frappe.model.document import Document
 
 
 def after_accept(invitation: Document, user: Document, user_inserted: bool) -> None:
-    agent_roles = {"Agent", "Agent Manager", "System Manager"}
+    agent_roles = {"Agent", "Agent Manager", "System Manager", "Service Manager"}
     customer_roles = {"HD Customer", "HD Customer Manager"}
     invited_roles = {d.role for d in invitation.roles}
 

@@ -234,7 +234,7 @@ const pendingInvitesResource = createResource({
   transform: (data) =>
     data.filter((invite) =>
       invite.roles.some((role) =>
-        ["Agent", "Agent Manager", "System Manager"].includes(role)
+        ["Agent", "Agent Manager", "System Manager", "Service Manager"].includes(role)
       )
     ),
 });
@@ -248,7 +248,7 @@ const cancelInviteResource = createResource({
   },
 });
 
-const rolesToLabel = (roles: readonly Role[]) => {
+const rolesToLabel = (roles: readonly string[]) => {
   const rolesSt = new Set(roles);
   if (rolesSt.has("System Manager")) {
     return roleToLabel("System Manager");
@@ -259,11 +259,14 @@ const rolesToLabel = (roles: readonly Role[]) => {
   if (rolesSt.has("Agent")) {
     return roleToLabel("Agent");
   }
+  if (rolesSt.has("Service Manager")) {
+    return "Service Manager";
+  }
   throw new Error(`Invalid roles: ${roles.join(", ")}`);
 };
 
 const getInviteByEmailRoles = (selectedRole: Role) => {
-  const res: Role[] = [];
+  const res: string[] = [];
   switch (selectedRole) {
     case "System Manager":
       res.push("Agent", "Agent Manager");
@@ -277,6 +280,7 @@ const getInviteByEmailRoles = (selectedRole: Role) => {
       const x: never = selectedRole;
       throw new Error(`Invalid selected role: ${x}`);
   }
+  res.push("Service Manager");
   res.push(selectedRole);
   return res;
 };

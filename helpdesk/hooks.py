@@ -61,6 +61,7 @@ user_invitation = {
             "Agent Manager",
             "HD Customer",
             "HD Customer Manager",
+            "Service Manager",
         ],
         "System Manager": [
             "Agent",
@@ -68,6 +69,7 @@ user_invitation = {
             "System Manager",
             "HD Customer",
             "HD Customer Manager",
+            "Service Manager",
         ],
     },
     "after_accept": "helpdesk.helpdesk.hooks.user_invitation.after_accept",
