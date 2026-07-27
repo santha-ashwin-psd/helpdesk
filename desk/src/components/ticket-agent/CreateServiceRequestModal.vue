@@ -1,4 +1,3 @@
-
 <template>
   <Dialog :title="__('Create Service Request')" v-model:open="showDialog">
     <template #default>
