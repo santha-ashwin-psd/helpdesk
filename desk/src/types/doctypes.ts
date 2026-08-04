@@ -31,7 +31,7 @@ export interface HDTicketStatus extends DocType {
   enabled: 0 | 1;
 }
 
-// Last updated: 2026-07-09 17:31:44.708098
+// Last updated: 2026-07-17 10:37:27.275210
 export interface HDTicket extends DocType {
   /** Subject: Data */
   subject: string;
@@ -125,6 +125,8 @@ export interface HDTicket extends DocType {
   machine?: string;
   /** Location: Small Text */
   location?: string;
+  /** Service Request: Link (Service Request) */
+  service_request?: string;
 }
 
 // Last updated: 2026-03-03 12:30:01.394107

@@ -234,6 +234,34 @@ class HDTicket(Document):
             )
         ).insert(ignore_permissions=True)
 
+        if notification_type == "Assignment":
+            self.send_whatsapp_notification(agent)
+
+    def send_whatsapp_notification(self, agent):
+        if not frappe.db.exists("DocType", "WhatsApp Message"):
+            return
+
+        user_doc = frappe.get_doc("User", agent)
+        phone = user_doc.mobile_no or user_doc.phone
+        
+        if not phone:
+            return
+            
+        message = f"Hello {user_doc.first_name},\n\nTicket *{self.name}* ({self.subject}) has been assigned to you."
+        
+        try:
+            frappe.enqueue(
+                "helpdesk.api.whatsapp.create_whatsapp_message",
+                queue="short",
+                reference_doctype="HD Ticket",
+                reference_name=self.name,
+                message=message,
+                to=phone,
+                content_type="text"
+            )
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "Helpdesk WhatsApp Assignment Error")
+
     def capture_update_telemetry_events(self):
         capture_event("ticket_updated")
 
@@ -1222,7 +1250,7 @@ class HDTicket(Document):
 # is being called from hooks. `doc` is the ticket to check against
 def has_permission(doc, user=None):
     user = user or frappe.session.user
-    if is_admin(user):
+    if is_admin(user) or "Agent Manager" in frappe.get_roles(user):
         return True
     if user in (doc.contact, doc.raised_by, doc.owner):
         return True
@@ -1241,37 +1269,21 @@ def _is_customer_manager(customer: str, user: str) -> bool:
 
 
 def _agent_has_permission(doc, user: str) -> bool:
-    if not frappe.db.get_single_value("HD Settings", "restrict_tickets_by_agent_group"):
-        return True
-    show_tickets_without_team = frappe.db.get_single_value(
-        "HD Settings", "do_not_restrict_tickets_without_an_agent_group"
-    )
-    if show_tickets_without_team and not doc.get("agent_group"):
-        return True
-
     if doc.get("_assign"):
         try:
             if user in json.loads(doc._assign):
                 return True
         except (ValueError, TypeError):
-            return False
+            pass
 
-    teams = get_agents_team()
-    if any(team.get("ignore_restrictions") for team in teams):
-        return True
-
-    team_names = [t.team_name for t in teams]
-    is_team_member = frappe.db.exists(
-        "HD Team Member", {"parent": ["in", team_names], "user": frappe.session.user}
-    )
-    return bool(is_team_member) and doc.get("agent_group") in team_names
+    return False
 
 
 # Custom perms for list query. Only the `WHERE` part
 # https://frappeframework.com/docs/user/en/python-api/hooks#modify-list-query
 def permission_query(user: str | None = None):
     user = user or frappe.session.user
-    if is_admin(user):
+    if is_admin(user) or "Agent Manager" in frappe.get_roles(user):
         return
     if not is_agent(user):
         return _customer_query(user)
@@ -1290,32 +1302,9 @@ def _customer_query(user: str) -> str:
 def _agent_query(user: str) -> str | None:
     query = _get_base_visibility(user)
 
-    if not frappe.db.get_single_value("HD Settings", "restrict_tickets_by_agent_group"):
-        return  # Restrictions disabled, return all tickets
-
-    show_tickets_without_team = frappe.db.get_single_value(
-        "HD Settings", "do_not_restrict_tickets_without_an_agent_group"
-    )
-    if show_tickets_without_team:
-        query += " OR (`tabHD Ticket`.agent_group is null OR `tabHD Ticket`.agent_group = '')"
-
-    # An agent on a team with `ignore_restrictions` set can see every team's tickets.
-    teams = get_agents_team()
-    if any(team.get("ignore_restrictions") for team in teams):
-        all_teams = frappe.get_all("HD Team", pluck="name")
-        if not all_teams:
-            return query
-        query += " OR (" + _build_in_clause("agent_group", all_teams) + ")"
-        if not show_tickets_without_team:
-            query += " OR (`tabHD Ticket`.agent_group is null)"
-        return query
-
     query += " OR (JSON_SEARCH(`tabHD Ticket`._assign, 'all', {u}) IS NOT NULL)".format(
         u=frappe.db.escape(user)
     )
-    team_names = [t.get("team_name") for t in teams]
-    if team_names:
-        query += " OR (" + _build_in_clause("agent_group", team_names) + ")"
     return query
 
 
