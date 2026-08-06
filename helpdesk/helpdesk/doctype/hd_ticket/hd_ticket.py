@@ -223,6 +223,8 @@ class HDTicket(Document):
         self.publish_update()
         self.capture_update_telemetry_events()
 
+
+
     def notify_agent(self, agent, notification_type="Assignment"):
         frappe.get_doc(
             frappe._dict(
@@ -238,8 +240,7 @@ class HDTicket(Document):
             self.send_whatsapp_notification(agent)
 
     def send_whatsapp_notification(self, agent):
-        if not frappe.db.exists("DocType", "WhatsApp Message"):
-            return
+
 
         user_doc = frappe.get_doc("User", agent)
         phone = user_doc.mobile_no or user_doc.phone
@@ -249,15 +250,18 @@ class HDTicket(Document):
             
         message = f"Hello {user_doc.first_name},\n\nTicket *{self.name}* ({self.subject}) has been assigned to you."
         
+        from frappe.utils import get_url
+        ticket_link = get_url(f"/helpdesk/tickets/{self.name}")
+        message_text = f"Hello {user_doc.first_name},\n\nTicket *{self.name}* ({self.subject}) has been assigned to you.\n\nView Ticket: {ticket_link}"
+        
         try:
             frappe.enqueue(
                 "helpdesk.api.whatsapp.create_whatsapp_message",
                 queue="short",
                 reference_doctype="HD Ticket",
                 reference_name=self.name,
-                message=message,
                 to=phone,
-                content_type="text"
+                message_body=message_text
             )
         except Exception:
             frappe.log_error(frappe.get_traceback(), "Helpdesk WhatsApp Assignment Error")
@@ -494,9 +498,6 @@ class HDTicket(Document):
     @agent_only
     def assign_agent(self, agent: str):
         assign({"assign_to": [agent], "doctype": "HD Ticket", "name": self.name})
-
-        if frappe.session.user != agent:
-            self.notify_agent(agent, "Assignment")
 
     def get_assigned_agents(self):
         assignees = get_assignees({"doctype": "HD Ticket", "name": self.name})
@@ -1438,3 +1439,13 @@ def update_sla_status_in_ticket():
             )
             continue
         frappe.db.commit()  # nosemgrep
+
+
+def on_todo_after_insert(doc, method=None):
+    if doc.reference_type == "HD Ticket" and doc.allocated_to:
+        if doc.allocated_to != frappe.session.user:
+            try:
+                ticket = frappe.get_doc("HD Ticket", doc.reference_name)
+                ticket.notify_agent(doc.allocated_to, "Assignment")
+            except Exception as e:
+                frappe.log_error("Error in on_todo_after_insert", str(e))

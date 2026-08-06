@@ -4,19 +4,19 @@ import requests
 
 WHATSAPP_SOURCE = "WhatsApp"
 WHATSAPP_PHONE_NUMBER_ID = "1269335696258495"
-WHATSAPP_ACCESS_TOKEN = "EAAOdxd27ryMBSIHizRynHVzBhPZARbAXjkUiVB9GfiytEGJeoKwQSWuI4wMkcCwCFKsrZBzN6grT2krMFfW1EKLkCCnUykpjIqRWL4ZAYMmZC0OS7JyqhUvNXYcNSLcSx4qOLnJyDhds7rnjxXBlIRGSLlPdUrqVZCUPH3ZCyGSH01BnBDOYeH5MrcxKfUhAZDZD"
-
+WHATSAPP_ACCESS_TOKEN = "EAAOdxd27ryMBSAIxYAIObC5Oak82qDhLAZAWrDBp3VaRxoeLfZBd0hjZBZC58pck0FcWBV2DFfd8GqWcoE9XwuD1hKQpuD5qldoYN0rT2EsNts8AE7O0ZC00wPEpkhbRLvXqJp0j5rpmrwPTsNy9jJzJaclBaakeowwgbtkZCwmRgcoEcmeejrApqe0mhOyAZDZD"
 @frappe.whitelist()
 def create_whatsapp_message(
     reference_doctype: str,
     reference_name: str,
-    message: str,
     to: str,
-    content_type: str = "text",
+    template_name: str = None,
+    template_variables: str = None, # JSON encoded list
+    message_body: str = None,
 ):
     """
     API Endpoint to send a WhatsApp message from Helpdesk.
-    It sends the message via Meta Graph API and creates a WhatsApp Message record.
+    It sends the message via Meta Graph API.
     """
     
     url = f"https://graph.facebook.com/v19.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
@@ -24,32 +24,51 @@ def create_whatsapp_message(
         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
         "Content-Type": "application/json"
     }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to.replace("+", "").replace(" ", ""),
-        "type": "text",
-        "text": {"body": message}
-    }
+    
+    to = to.replace("+", "").replace(" ", "")
+    if message_body:
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to,
+            "type": "text",
+            "text": {
+                "preview_url": True,
+                "body": message_body
+            }
+        }
+    else:
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {
+                    "code": "en"
+                },
+                "components": []
+            }
+        }
+        
+        if template_variables:
+            import json
+            variables = json.loads(template_variables)
+            if variables:
+                parameters = [{"type": "text", "text": str(v)} for v in variables]
+                payload["template"]["components"].append({
+                    "type": "body",
+                    "parameters": parameters
+                })
     
     try:
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
-    except Exception:
-        frappe.log_error(frappe.get_traceback(), "Helpdesk WhatsApp API Error")
+    except Exception as e:
+        error_msg = f"API Error: {str(e)}\n"
+        if hasattr(e, 'response') and e.response is not None:
+            error_msg += f"Response: {e.response.text}\n"
+        error_msg += frappe.get_traceback()
+        frappe.log_error(title="Helpdesk WhatsApp API Error", message=error_msg)
         
-    # Ensure the doctype is installed before logging
-    if frappe.db.exists("DocType", "WhatsApp Message"):
-        doc = frappe.new_doc("WhatsApp Message")
-        doc.update(
-            {
-                "reference_doctype": reference_doctype,
-                "reference_name": reference_name,
-                "message": message,
-                "to": to,
-                "content_type": content_type,
-            }
-        )
-        doc.insert(ignore_permissions=True)
-        return doc.name
-
     return None
